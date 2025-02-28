@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rocket League with Lamborghini</title>
+    <title>Gun Game</title>
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; }
+        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); color: red; font-size: 20px; text-align: center; pointer-events: none; }
     </style>
 </head>
 <body>
+    <div id="crosshair">+</div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
         // Scene setup
@@ -28,115 +30,98 @@
 
         // Ground
         const groundGeometry = new THREE.PlaneGeometry(100, 100);
-        const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x228B22 });
+        const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x8B4513 });
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.rotation.x = -Math.PI / 2;
         scene.add(ground);
 
-        // Lamborghini-style car (simulated with primitives)
-        const car = new THREE.Group();
-        // Body
-        const bodyGeometry = new THREE.BoxGeometry(2, 0.6, 4.5);
-        const bodyMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red like a Lamborghini
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        body.position.y = 0.3;
-        car.add(body);
-        // Hood (slanted)
-        const hoodGeometry = new THREE.BoxGeometry(2, 0.2, 1.5);
-        const hood = new THREE.Mesh(hoodGeometry, bodyMaterial);
-        hood.position.set(0, 0.5, 1.5);
-        hood.rotation.x = -0.3;
-        car.add(hood);
-        // Wheels
-        const wheelGeometry = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 32);
-        const wheelMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
-        const wheels = [];
-        for (let i = 0; i < 4; i++) {
-            const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
-            wheel.rotation.z = Math.PI / 2;
-            wheels.push(wheel);
-            car.add(wheel);
-        }
-        wheels[0].position.set(-1, 0.15, 1.5);  // Front left
-        wheels[1].position.set(1, 0.15, 1.5);   // Front right
-        wheels[2].position.set(-1, 0.15, -1.5); // Rear left
-        wheels[3].position.set(1, 0.15, -1.5);  // Rear right
-        car.position.y = 0.5;
-        scene.add(car);
+        // Realistic gun (simulated with primitives)
+        const gun = new THREE.Group();
+        // Barrel
+        const barrelGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 32);
+        const gunMaterial = new THREE.MeshBasicMaterial({ color: 0x333333 }); // Dark gray metal
+        const barrel = new THREE.Mesh(barrelGeometry, gunMaterial);
+        barrel.rotation.x = Math.PI / 2;
+        barrel.position.z = 1;
+        gun.add(barrel);
+        // Handle
+        const handleGeometry = new THREE.BoxGeometry(0.2, 0.8, 0.4);
+        const handle = new THREE.Mesh(handleGeometry, gunMaterial);
+        handle.position.set(0, -0.4, 0);
+        gun.add(handle);
+        // Trigger guard
+        const triggerGuardGeometry = new THREE.TorusGeometry(0.2, 0.05, 16, 32, Math.PI);
+        const triggerGuard = new THREE.Mesh(triggerGuardGeometry, gunMaterial);
+        triggerGuard.position.set(0, -0.2, 0.2);
+        triggerGuard.rotation.x = Math.PI / 2;
+        gun.add(triggerGuard);
+        gun.position.set(0, 1, -1); // Position in front of camera
+        scene.add(gun);
 
-        // Soccer Ball
-        const ballGeometry = new THREE.SphereGeometry(1, 32, 32);
-        const ballMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const ball = new THREE.Mesh(ballGeometry, ballMaterial);
-        ball.position.set(5, 1, 5);
-        scene.add(ball);
+        // Target
+        let targetScale = 1;
+        let targetDistance = 10;
+        const targetGeometry = new THREE.SphereGeometry(targetScale, 32, 32);
+        const targetMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        let target = new THREE.Mesh(targetGeometry, targetMaterial);
+        target.position.set((Math.random() - 0.5) * 20, targetScale, targetDistance);
+        scene.add(target);
 
         // Camera positioning
-        camera.position.set(0, 10, 15);
-        camera.lookAt(car.position);
+        camera.position.set(0, 2, 0);
+        camera.lookAt(0, 0, 10);
 
-        // Physics variables
-        let carVelocity = new THREE.Vector3(0, 0, 0);
-        let ballVelocity = new THREE.Vector3(0, 0, 0);
-        const carSpeed = 0.25;
-        const friction = 0.95;
-        const gravity = -0.05;
-        let ballScale = 1;
+        // Gun movement controls
+        const keys = { ArrowUp: false, ArrowDown: false, Space: false };
+        document.addEventListener('keydown', (e) => { 
+            if (e.key === ' ') keys.Space = true;
+            else if (keys[e.key] !== undefined) keys[e.key] = true; 
+        });
+        document.addEventListener('keyup', (e) => { 
+            if (e.key === ' ') keys.Space = false;
+            else if (keys[e.key] !== undefined) keys[e.key] = false; 
+        });
 
-        // Controls
-        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-        document.addEventListener('keydown', (e) => { if (keys[e.key] !== undefined) keys[e.key] = true; });
-        document.addEventListener('keyup', (e) => { if (keys[e.key] !== undefined) keys[e.key] = false; });
+        // Shooting raycaster
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2(0, 0); // Center of screen
 
-        // Collision detection
-        function checkCollision(obj1, obj2) {
-            const box1 = new THREE.Box3().setFromObject(obj1);
-            const box2 = new THREE.Box3().setFromObject(obj2);
-            return box1.intersectsBox(box2);
-        }
+        // Game state
+        let score = 0;
 
         // Animation loop
         function animate() {
             requestAnimationFrame(animate);
 
-            // Car movement
-            let direction = new THREE.Vector3(0, 0, -1).applyQuaternion(car.quaternion);
-            if (keys.ArrowUp) carVelocity.add(direction.multiplyScalar(carSpeed));      // Forward
-            if (keys.ArrowDown) carVelocity.add(direction.multiplyScalar(-carSpeed));  // Reverse
-            if (keys.ArrowLeft) car.rotation.y += 0.05;                                // Turn left
-            if (keys.ArrowRight) car.rotation.y -= 0.05;                              // Turn right
+            // Gun movement (up/down only)
+            if (keys.ArrowUp && gun.rotation.x > -Math.PI / 4) gun.rotation.x -= 0.05;  // Aim up
+            if (keys.ArrowDown && gun.rotation.x < Math.PI / 4) gun.rotation.x += 0.05; // Aim down
 
-            // Apply friction and update car position
-            carVelocity.multiplyScalar(friction);
-            car.position.add(carVelocity);
-
-            // Keep car on ground
-            if (car.position.y > 0.5) car.position.y = 0.5;
-
-            // Ball physics
-            ballVelocity.y += gravity;
-            ball.position.add(ballVelocity);
-            ballVelocity.multiplyScalar(friction);
-
-            // Ball-ground collision
-            if (ball.position.y < ballScale) {
-                ball.position.y = ballScale;
-                ballVelocity.y = -ballVelocity.y * 0.8; // Bounce
+            // Shooting
+            if (keys.Space) {
+                keys.Space = false; // Prevent continuous firing
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects([target]);
+                if (intersects.length > 0) {
+                    // Hit detected
+                    score++;
+                    scene.remove(target);
+                    // Increase difficulty
+                    targetScale *= 0.9; // Smaller
+                    targetDistance += 2; // Farther
+                    target = new THREE.Mesh(
+                        new THREE.SphereGeometry(targetScale, 32, 32),
+                        targetMaterial
+                    );
+                    target.position.set(
+                        (Math.random() - 0.5) * 20,
+                        targetScale,
+                        targetDistance
+                    );
+                    scene.add(target);
+                    console.log(`Score: ${score}`);
+                }
             }
-
-            // Car-ball collision
-            if (checkCollision(car, ball)) {
-                let relativeVelocity = carVelocity.clone().sub(ballVelocity);
-                ballVelocity.add(relativeVelocity.multiplyScalar(0.5));
-                ballVelocity.y += 0.5; // Kick upward
-                // Make ball bigger
-                ballScale += 0.2;
-                ball.scale.set(ballScale, ballScale, ballScale);
-            }
-
-            // Camera follow car
-            camera.position.set(car.position.x, 10, car.position.z + 15);
-            camera.lookAt(car.position);
 
             renderer.render(scene, camera);
         }
