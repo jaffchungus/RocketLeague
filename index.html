@@ -5,26 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aiming Game with Phaser</title>
     <style>
-        body { margin: 0; display: flex; justify-content: center; align-items: center; background: #000; }
-        canvas { display: block; }
+        body { margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; background: #000; }
+        #game-container { width: 800px; height: 600px; }
     </style>
 </head>
 <body>
+    <div id="game-container"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
     <script>
         const config = {
             type: Phaser.AUTO,
             width: 800,
             height: 600,
+            parent: 'game-container', // Explicitly attach to the div
             physics: {
                 default: 'arcade',
-                arcade: { gravity: { y: 0 } }
+                arcade: { gravity: { y: 0 }, debug: false }
             },
             scene: {
                 preload: preload,
                 create: create,
                 update: update
-            }
+            },
+            backgroundColor: '#87CEEB' // Sky blue background to confirm rendering
         };
 
         const game = new Phaser.Game(config);
@@ -34,20 +37,23 @@
         let targetDistance = 400;
 
         function preload() {
-            // No external assets, using graphics instead
+            // No external assets, using graphics
         }
 
         function create() {
             // Ground
-            this.add.rectangle(400, 600, 800, 200, 0x8B4513).setOrigin(0.5, 1);
+            const ground = this.add.rectangle(400, 600, 800, 200, 0x8B4513).setOrigin(0.5, 1);
+            ground.setDepth(0);
 
             // Crosshair
             crosshair = this.add.text(100, 300, '+', { fontSize: '24px', color: '#ff0000' }).setOrigin(0.5);
+            crosshair.setDepth(2);
 
             // Projectiles group
             projectiles = this.physics.add.group({
                 defaultKey: 'projectile',
-                maxSize: 20
+                maxSize: 20,
+                enable: true
             });
 
             // Initial target
@@ -55,7 +61,7 @@
             spawnTarget(this);
 
             // Score text
-            scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '20px', color: '#fff' });
+            scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '20px', color: '#fff' }).setDepth(2);
 
             // Input
             this.input.keyboard.on('keydown-SPACE', launchProjectile, this);
@@ -73,24 +79,26 @@
                 crosshair.y += 5;
             }
 
-            // Projectile movement
+            // Projectile movement and cleanup
             projectiles.children.each(projectile => {
                 if (projectile.active && (projectile.x > 800 || projectile.x < 0)) {
                     projectile.setActive(false).setVisible(false);
                 }
             });
-
-            // Check collisions
-            this.physics.overlap(projectiles, targets, hitTarget, null, this);
         }
 
         function launchProjectile() {
-            const projectile = projectiles.get(100, crosshair.y);
+            const projectile = projectiles.create(100, crosshair.y, null);
             if (projectile) {
                 projectile.setActive(true).setVisible(true);
                 projectile.setSize(10, 5).setDisplaySize(10, 5);
                 projectile.setFillStyle(0xffff00); // Yellow projectile
+                this.physics.add.existing(projectile);
                 projectile.body.setVelocityX(600); // Move right
+                projectile.setDepth(1);
+
+                // Check collisions immediately after creation
+                this.physics.overlap(projectiles, targets, hitTarget, null, this);
             }
         }
 
@@ -98,6 +106,7 @@
             const x = Phaser.Math.Between(500, 700);
             const y = Phaser.Math.Between(50, 550);
             const target = scene.physics.add.circle(x, y, 20 * targetScale, 0xff0000);
+            target.setDepth(1);
             targets.add(target);
         }
 
