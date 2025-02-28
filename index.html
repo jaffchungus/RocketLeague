@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rocket League Lite</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 10, 7.5);
+        scene.add(directionalLight);
+
+        // Ground
+        const groundGeometry = new THREE.PlaneGeometry(100, 100);
+        const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x228B22 });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
+        // Car
+        const carGeometry = new THREE.BoxGeometry(2, 1, 4);
+        const carMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const car = new THREE.Mesh(carGeometry, carMaterial);
+        car.position.y = 0.5;
+        scene.add(car);
+
+        // Soccer Ball
+        const ballGeometry = new THREE.SphereGeometry(1, 32, 32);
+        const ballMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const ball = new THREE.Mesh(ballGeometry, ballMaterial);
+        ball.position.set(5, 1, 5);
+        scene.add(ball);
+
+        // Camera positioning
+        camera.position.set(0, 10, 15);
+        camera.lookAt(car.position);
+
+        // Physics variables
+        let carVelocity = new THREE.Vector3(0, 0, 0);
+        let ballVelocity = new THREE.Vector3(0, 0, 0);
+        const carSpeed = 0.2;
+        const friction = 0.95;
+        const gravity = -0.05;
+
+        // Controls
+        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+        document.addEventListener('keydown', (e) => { if (keys[e.key] !== undefined) keys[e.key] = true; });
+        document.addEventListener('keyup', (e) => { if (keys[e.key] !== undefined) keys[e.key] = false; });
+
+        // Collision detection
+        function checkCollision(obj1, obj2) {
+            const box1 = new THREE.Box3().setFromObject(obj1);
+            const box2 = new THREE.Box3().setFromObject(obj2);
+            return box1.intersectsBox(box2);
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Car movement
+            let direction = new THREE.Vector3(0, 0, -1).applyQuaternion(car.quaternion);
+            if (keys.ArrowUp) carVelocity.add(direction.multiplyScalar(carSpeed));
+            if (keys.ArrowDown) carVelocity.add(direction.multiplyScalar(-carSpeed));
+            if (keys.ArrowLeft) car.rotation.y += 0.05;
+            if (keys.ArrowRight) car.rotation.y -= 0.05;
+
+            // Apply friction and update car position
+            carVelocity.multiplyScalar(friction);
+            car.position.add(carVelocity);
+
+            // Keep car on ground
+            if (car.position.y > 0.5) car.position.y = 0.5;
+
+            // Ball physics
+            ballVelocity.y += gravity;
+            ball.position.add(ballVelocity);
+            ballVelocity.multiplyScalar(friction);
+
+            // Ball-ground collision
+            if (ball.position.y < 1) {
+                ball.position.y = 1;
+                ballVelocity.y = -ballVelocity.y * 0.8; // Bounce
+            }
+
+            // Car-ball collision
+            if (checkCollision(car, ball)) {
+                let relativeVelocity = carVelocity.clone().sub(ballVelocity);
+                ballVelocity.add(relativeVelocity.multiplyScalar(0.5));
+                ballVelocity.y += 0.5; // Kick upward
+            }
+
+            // Camera follow car
+            camera.position.set(car.position.x, 10, car.position.z + 15);
+            camera.lookAt(car.position);
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Window resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
