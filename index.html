@@ -3,137 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gun Game</title>
+    <title>Gun Game with Phaser</title>
     <style>
-        body { margin: 0; overflow: hidden; }
+        body { margin: 0; display: flex; justify-content: center; align-items: center; background: #000; }
         canvas { display: block; }
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); color: red; font-size: 20px; text-align: center; pointer-events: none; }
     </style>
 </head>
 <body>
-    <div id="crosshair">+</div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.80.1/phaser.min.js"></script>
     <script>
-        // Scene setup
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0x404040);
-        scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(5, 10, 7.5);
-        scene.add(directionalLight);
-
-        // Ground
-        const groundGeometry = new THREE.PlaneGeometry(100, 100);
-        const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x8B4513 });
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.rotation.x = -Math.PI / 2;
-        scene.add(ground);
-
-        // Realistic gun (simulated with primitives)
-        const gun = new THREE.Group();
-        // Barrel
-        const barrelGeometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 32);
-        const gunMaterial = new THREE.MeshBasicMaterial({ color: 0x333333 }); // Dark gray metal
-        const barrel = new THREE.Mesh(barrelGeometry, gunMaterial);
-        barrel.rotation.x = Math.PI / 2;
-        barrel.position.z = 1;
-        gun.add(barrel);
-        // Handle
-        const handleGeometry = new THREE.BoxGeometry(0.2, 0.8, 0.4);
-        const handle = new THREE.Mesh(handleGeometry, gunMaterial);
-        handle.position.set(0, -0.4, 0);
-        gun.add(handle);
-        // Trigger guard
-        const triggerGuardGeometry = new THREE.TorusGeometry(0.2, 0.05, 16, 32, Math.PI);
-        const triggerGuard = new THREE.Mesh(triggerGuardGeometry, gunMaterial);
-        triggerGuard.position.set(0, -0.2, 0.2);
-        triggerGuard.rotation.x = Math.PI / 2;
-        gun.add(triggerGuard);
-        gun.position.set(0, 1, -1); // Position in front of camera
-        scene.add(gun);
-
-        // Target
-        let targetScale = 1;
-        let targetDistance = 10;
-        const targetGeometry = new THREE.SphereGeometry(targetScale, 32, 32);
-        const targetMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        let target = new THREE.Mesh(targetGeometry, targetMaterial);
-        target.position.set((Math.random() - 0.5) * 20, targetScale, targetDistance);
-        scene.add(target);
-
-        // Camera positioning
-        camera.position.set(0, 2, 0);
-        camera.lookAt(0, 0, 10);
-
-        // Gun movement controls
-        const keys = { ArrowUp: false, ArrowDown: false, Space: false };
-        document.addEventListener('keydown', (e) => { 
-            if (e.key === ' ') keys.Space = true;
-            else if (keys[e.key] !== undefined) keys[e.key] = true; 
-        });
-        document.addEventListener('keyup', (e) => { 
-            if (e.key === ' ') keys.Space = false;
-            else if (keys[e.key] !== undefined) keys[e.key] = false; 
-        });
-
-        // Shooting raycaster
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2(0, 0); // Center of screen
-
-        // Game state
-        let score = 0;
-
-        // Animation loop
-        function animate() {
-            requestAnimationFrame(animate);
-
-            // Gun movement (up/down only)
-            if (keys.ArrowUp && gun.rotation.x > -Math.PI / 4) gun.rotation.x -= 0.05;  // Aim up
-            if (keys.ArrowDown && gun.rotation.x < Math.PI / 4) gun.rotation.x += 0.05; // Aim down
-
-            // Shooting
-            if (keys.Space) {
-                keys.Space = false; // Prevent continuous firing
-                raycaster.setFromCamera(mouse, camera);
-                const intersects = raycaster.intersectObjects([target]);
-                if (intersects.length > 0) {
-                    // Hit detected
-                    score++;
-                    scene.remove(target);
-                    // Increase difficulty
-                    targetScale *= 0.9; // Smaller
-                    targetDistance += 2; // Farther
-                    target = new THREE.Mesh(
-                        new THREE.SphereGeometry(targetScale, 32, 32),
-                        targetMaterial
-                    );
-                    target.position.set(
-                        (Math.random() - 0.5) * 20,
-                        targetScale,
-                        targetDistance
-                    );
-                    scene.add(target);
-                    console.log(`Score: ${score}`);
-                }
+        const config = {
+            type: Phaser.AUTO,
+            width: 800,
+            height: 600,
+            physics: {
+                default: 'arcade',
+                arcade: { gravity: { y: 0 } }
+            },
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
             }
+        };
 
-            renderer.render(scene, camera);
+        const game = new Phaser.Game(config);
+        let gun, crosshair, targets, bullets, scoreText;
+        let score = 0;
+        let targetScale = 1;
+        let targetDistance = 400;
+
+        function preload() {
+            // No external assets, using graphics instead
         }
 
-        animate();
+        function create() {
+            // Ground
+            this.add.rectangle(400, 600, 800, 200, 0x8B4513).setOrigin(0.5, 1);
 
-        // Window resize handler
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+            // Realistic gun (simulated with shapes)
+            gun = this.add.group();
+            const barrel = this.add.rectangle(100, 300, 60, 10, 0x333333); // Barrel
+            const handle = this.add.rectangle(70, 320, 10, 40, 0x333333); // Handle
+            const triggerGuard = this.add.circle(80, 320, 10, 0x333333).setStrokeStyle(2, 0x333333); // Trigger guard
+            gun.addMultiple([barrel, handle, triggerGuard]);
+            gun.setDepth(1);
+
+            // Crosshair
+            crosshair = this.add.text(150, 300, '+', { fontSize: '24px', color: '#ff0000' }).setOrigin(0.5);
+
+            // Bullets group
+            bullets = this.physics.add.group({
+                defaultKey: 'bullet',
+                maxSize: 20
+            });
+
+            // Initial target
+            targets = this.physics.add.group();
+            spawnTarget(this);
+
+            // Score text
+            scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '20px', color: '#fff' });
+
+            // Input
+            this.input.keyboard.on('keydown-SPACE', shoot, this);
+        }
+
+        function update() {
+            const cursors = this.input.keyboard.createCursorKeys();
+
+            // Gun movement (up/down)
+            let gunY = gun.getChildren()[0].y;
+            if (cursors.up.isDown && gunY > 50) {
+                gun.getChildren().forEach(child => child.y -= 5);
+            }
+            if (cursors.down.isDown && gunY < 550) {
+                gun.getChildren().forEach(child => child.y += 5);
+            }
+
+            // Sync crosshair with gun
+            crosshair.setPosition(150, gun.getChildren()[0].y);
+
+            // Bullet movement
+            bullets.children.each(bullet => {
+                if (bullet.active && (bullet.x > 800 || bullet.x < 0)) {
+                    bullet.setActive(false).setVisible(false);
+                }
+            });
+
+            // Check collisions
+            this.physics.overlap(bullets, targets, hitTarget, null, this);
+        }
+
+        function shoot() {
+            const bullet = bullets.get(150, gun.getChildren()[0].y);
+            if (bullet) {
+                bullet.setActive(true).setVisible(true);
+                bullet.setSize(10, 5).setDisplaySize(10, 5);
+                bullet.setFillStyle(0xffff00); // Yellow bullet
+                bullet.body.setVelocityX(600); // Shoot right
+            }
+        }
+
+        function spawnTarget(scene) {
+            const x = Phaser.Math.Between(500, 700);
+            const y = Phaser.Math.Between(50, 550);
+            const target = scene.physics.add.circle(x, y, 20 * targetScale, 0xff0000);
+            targets.add(target);
+        }
+
+        function hitTarget(bullet, target) {
+            bullet.setActive(false).setVisible(false);
+            target.destroy();
+            score++;
+            scoreText.setText(`Score: ${score}`);
+            
+            // Increase difficulty
+            targetScale *= 0.9; // Smaller
+            targetDistance += 50; // Farther (affects spawn range)
+            spawnTarget(this);
+        }
     </script>
 </body>
 </html>
