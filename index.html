@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gun Game with Phaser</title>
+    <title>Aiming Game with Phaser</title>
     <style>
         body { margin: 0; display: flex; justify-content: center; align-items: center; background: #000; }
         canvas { display: block; }
@@ -28,7 +28,7 @@
         };
 
         const game = new Phaser.Game(config);
-        let gun, crosshair, targets, bullets, scoreText;
+        let crosshair, targets, projectiles, scoreText;
         let score = 0;
         let targetScale = 1;
         let targetDistance = 400;
@@ -41,20 +41,12 @@
             // Ground
             this.add.rectangle(400, 600, 800, 200, 0x8B4513).setOrigin(0.5, 1);
 
-            // Realistic gun (simulated with shapes)
-            gun = this.add.group();
-            const barrel = this.add.rectangle(100, 300, 60, 10, 0x333333); // Barrel
-            const handle = this.add.rectangle(70, 320, 10, 40, 0x333333); // Handle
-            const triggerGuard = this.add.circle(80, 320, 10, 0x333333).setStrokeStyle(2, 0x333333); // Trigger guard
-            gun.addMultiple([barrel, handle, triggerGuard]);
-            gun.setDepth(1);
-
             // Crosshair
-            crosshair = this.add.text(150, 300, '+', { fontSize: '24px', color: '#ff0000' }).setOrigin(0.5);
+            crosshair = this.add.text(100, 300, '+', { fontSize: '24px', color: '#ff0000' }).setOrigin(0.5);
 
-            // Bullets group
-            bullets = this.physics.add.group({
-                defaultKey: 'bullet',
+            // Projectiles group
+            projectiles = this.physics.add.group({
+                defaultKey: 'projectile',
                 maxSize: 20
             });
 
@@ -66,42 +58,39 @@
             scoreText = this.add.text(16, 16, 'Score: 0', { fontSize: '20px', color: '#fff' });
 
             // Input
-            this.input.keyboard.on('keydown-SPACE', shoot, this);
+            this.input.keyboard.on('keydown-SPACE', launchProjectile, this);
         }
 
         function update() {
             const cursors = this.input.keyboard.createCursorKeys();
 
-            // Gun movement (up/down)
-            let gunY = gun.getChildren()[0].y;
-            if (cursors.up.isDown && gunY > 50) {
-                gun.getChildren().forEach(child => child.y -= 5);
+            // Crosshair movement (up/down)
+            let crosshairY = crosshair.y;
+            if (cursors.up.isDown && crosshairY > 50) {
+                crosshair.y -= 5;
             }
-            if (cursors.down.isDown && gunY < 550) {
-                gun.getChildren().forEach(child => child.y += 5);
+            if (cursors.down.isDown && crosshairY < 550) {
+                crosshair.y += 5;
             }
 
-            // Sync crosshair with gun
-            crosshair.setPosition(150, gun.getChildren()[0].y);
-
-            // Bullet movement
-            bullets.children.each(bullet => {
-                if (bullet.active && (bullet.x > 800 || bullet.x < 0)) {
-                    bullet.setActive(false).setVisible(false);
+            // Projectile movement
+            projectiles.children.each(projectile => {
+                if (projectile.active && (projectile.x > 800 || projectile.x < 0)) {
+                    projectile.setActive(false).setVisible(false);
                 }
             });
 
             // Check collisions
-            this.physics.overlap(bullets, targets, hitTarget, null, this);
+            this.physics.overlap(projectiles, targets, hitTarget, null, this);
         }
 
-        function shoot() {
-            const bullet = bullets.get(150, gun.getChildren()[0].y);
-            if (bullet) {
-                bullet.setActive(true).setVisible(true);
-                bullet.setSize(10, 5).setDisplaySize(10, 5);
-                bullet.setFillStyle(0xffff00); // Yellow bullet
-                bullet.body.setVelocityX(600); // Shoot right
+        function launchProjectile() {
+            const projectile = projectiles.get(100, crosshair.y);
+            if (projectile) {
+                projectile.setActive(true).setVisible(true);
+                projectile.setSize(10, 5).setDisplaySize(10, 5);
+                projectile.setFillStyle(0xffff00); // Yellow projectile
+                projectile.body.setVelocityX(600); // Move right
             }
         }
 
@@ -112,8 +101,8 @@
             targets.add(target);
         }
 
-        function hitTarget(bullet, target) {
-            bullet.setActive(false).setVisible(false);
+        function hitTarget(projectile, target) {
+            projectile.setActive(false).setVisible(false);
             target.destroy();
             score++;
             scoreText.setText(`Score: ${score}`);
