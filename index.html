@@ -40,6 +40,15 @@
         world.gravity.set(0, GRAVITY, 0);
         world.solver.iterations = 10;
 
+        // Materials
+        const carMaterial = new CANNON.Material("carMaterial");
+        const floorMaterial = new CANNON.Material("floorMaterial");
+        const contactMaterial = new CANNON.ContactMaterial(carMaterial, floorMaterial, {
+            friction: 0.1,
+            restitution: 0.1
+        });
+        world.addContactMaterial(contactMaterial);
+
         // Car Class
         class Car {
             constructor(x, y, z) {
@@ -257,7 +266,8 @@
                 mass: 0,
                 shape: new CANNON.Plane(),
                 position: new CANNON.Vec3(0, 0, 0),
-                quaternion: new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI/2)
+                quaternion: new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI/2),
+                material: floorMaterial
             });
             world.addBody(floorBody);
 
